@@ -162,7 +162,7 @@ function getBestGuessExternalIp (c,e) {
 
 function _sendCommands (commandsIn, c,e) {
     var password = TorControlPort.password || "";
-    var commands = ['authenticate "' + password + '"'].concat(commandsIn, ['quit'];
+    var commands = ['authenticate "' + password + '"'].concat(commandsIn, ['quit']);
 
     TorControlPort.send(commands, function (err, data) {
         if (err) {
