@@ -156,6 +156,34 @@ function renewTorSession (done) {
   });
 }
 
+function getBestGuessExternalIp (c,e) {
+    _sendCommands('GETINFO address', c, e);
+}
+
+function _sendCommands (commandsIn, c,e) {
+    var password = TorControlPort.password || "";
+    var commands = ['authenticate "' + password + '"'].concat(commandsIn, ['quit'];
+
+    TorControlPort.send(commands, function (err, data) {
+        if (err) {
+            e(err);
+        } else {
+            var lines = data.split( require('os').EOL ).slice(0, -1);
+
+            var success = lines.every(function (val, ind, arr) {
+                // each response from the ControlPort should start with 250 (OK STATUS)
+                return val.length <= 0 || val.indexOf('250') >= 0;
+            });
+
+            if (!success) {
+                c(data);
+            } else {
+                e("invalid response");
+            }
+        }
+    });
+}
+
 module.exports = {
   setTorAddress: function (ipaddress, port) {
     // update the default proxy settings
@@ -167,6 +195,7 @@ module.exports = {
 
   newTorSession: renewTorSession,
   renewTorSession: renewTorSession,
+  getBestGuessExternalIp: getBestGuessExternalIp,
 
   TorControlPort: TorControlPort
 }
