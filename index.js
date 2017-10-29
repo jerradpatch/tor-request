@@ -157,28 +157,55 @@ function renewTorSession (done) {
 }
 
 function getBestGuessExternalIp (c,e) {
-    _sendCommands('GETINFO address', c, e);
+    _sendCommands('GETINFO address', (res)=>{
+        if(res.address) {
+            c(res.address);
+        } else {
+            e("address was not valid in the response");
+        }
+    }, e);
 }
 
 function _sendCommands (commandsIn, c,e) {
-    var password = TorControlPort.password || "";
+    var tor = Npm.require('tor-request');
+
+    var password = tor.TorControlPort.password || "";
     var commands = ['authenticate "' + password + '"'].concat(commandsIn, ['quit']);
 
-    TorControlPort.send(commands, function (err, data) {
+    tor.TorControlPort.send(commands, function (err, data) {
         if (err) {
             e(err);
         } else {
-            var lines = data.split( require('os').EOL ).slice(0, -1);
+            var lines = data.split( Npm.require('os').EOL ).slice(0, -1);
 
-            var success = lines.every(function (val, ind, arr) {
+            var success = lines.every(function (val) {
                 // each response from the ControlPort should start with 250 (OK STATUS)
-                return val.length <= 0 || val.indexOf('250') >= 0;
+                return val.indexOf('250') == 0;
             });
 
-            if (!success) {
-                c(data);
+            if (success && lines.length >= 2) {
+              //remove ending success lines (hold no value)
+                var valueLines = lines.slice(0, lines.length-2);
+
+                var ret = valueLines.filter(line=>{
+                  //remove all ok lines
+                  return line !== "250 OK\r";
+
+                }).map(line=>{
+                  //remove new line return chars
+                  return line.slice(4).replace(/\r?\n|\r/, "");
+
+                }).reduce((p,c)=>{
+                  //convert to an object
+                    var split = c.split("=");
+                    p[split[0]] = split[1];
+                    return p;
+
+                }, {});
+
+                c(ret);
             } else {
-                e("invalid response");
+                e("invalid response "+lines);
             }
         }
     });
