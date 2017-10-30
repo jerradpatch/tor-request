@@ -1,8 +1,11 @@
-var tr = require('../index.js');
-var request = require('request');
+import {TorRequest} from '../index';
+import * as request from 'request';
+
 
 var url = "http://api.ipify.org"; // this api returns your ip in the respnose body
 var httpsUrl = "https://api.ipify.org";
+
+var tr = new TorRequest();
 
 describe('Testing request and tor-request against ' + url, function () {
   this.timeout(15000);
@@ -33,7 +36,7 @@ describe('Testing request and tor-request against ' + url, function () {
 
   describe('test http tor-request', function () {
     it('should return without error', function (done) {
-      tr.request(url, function (err, res, body) {
+      tr.torRequest(url, function (err, res, body) {
         if (err || body == public_ip) throw err || new Error("request didn't go through tor - the tor ip and pulic ip were the same.");
         console.log("The requests public ip was: " + body);
         tor_ip = body;
@@ -50,9 +53,9 @@ describe('Testing request and tor-request against ' + url, function () {
 
     describe('test http GET tor-request', function () {
       it('should return without error', function (done) {
-        tr.request.get(url, function (err, res, body) {
+        tr.get(url, function (err, res, body) {
           console.log("method was: " + res.req.method);
-          if (err || res.req.method != 'GET') throw err || new Error("failed to call tr.request.get through tor");
+          if (err || res.req.method != 'GET') throw err || new Error("failed to call tr.get through tor");
           done();
         });
       });
@@ -60,9 +63,9 @@ describe('Testing request and tor-request against ' + url, function () {
 
     describe('test http POST tor-request', function () {
       it('should return without error', function (done) {
-        tr.request.post(url, function (err, res, body) {
+        tr.post(url, function (err, res, body) {
           console.log("method was: " + res.req.method);
-          if (err || res.req.method != 'POST') throw err || new Error("failed to call tr.request.post through tor");
+          if (err || res.req.method != 'POST') throw err || new Error("failed to call tr.post through tor");
           done();
         });
       });
@@ -70,9 +73,9 @@ describe('Testing request and tor-request against ' + url, function () {
 
     describe('test http HEAD tor-request', function () {
       it('should return without error', function (done) {
-        tr.request.head(url, function (err, res, body) {
+        tr.head(url, function (err, res, body) {
           console.log("method was: " + res.req.method);
-          if (err || res.req.method != 'HEAD') throw err || new Error("failed to call tr.request.head through tor");
+          if (err || res.req.method != 'HEAD') throw err || new Error("failed to call tr.head through tor");
           done();
         });
       });
@@ -80,9 +83,9 @@ describe('Testing request and tor-request against ' + url, function () {
 
     describe('test http DELETE tor-request', function () {
       it('should return without error', function (done) {
-        tr.request.del(url, function (err, res, body) {
+        tr.del(url, function (err, res, body) {
           console.log("method was: " + res.req.method);
-          if (err || res.req.method != 'DELETE') throw err || new Error("failed to call tr.request.del through tor");
+          if (err || res.req.method != 'DELETE') throw err || new Error("failed to call tr.del through tor");
           done();
         });
       });
@@ -90,9 +93,9 @@ describe('Testing request and tor-request against ' + url, function () {
 
     describe('test http PUT tor-request', function () {
       it('should return without error', function (done) {
-        tr.request.put(url, function (err, res, body) {
+        tr.put(url, function (err, res, body) {
           console.log("method was: " + res.req.method);
-          if (err || res.req.method != 'PUT') throw err || new Error("failed to call tr.request.put through tor");
+          if (err || res.req.method != 'PUT') throw err || new Error("failed to call tr.put through tor");
           console.log("the requests public ip was: " + body);
           done();
         });
@@ -101,9 +104,9 @@ describe('Testing request and tor-request against ' + url, function () {
 
     describe('test params.url alias for params.uri', function () {
       it('should return without error', function (done) {
-        tr.request.put({url: url}, function (err, res, body) {
+        tr.put({url: url}, function (err, res, body) {
           console.log("method was: " + res.req.method);
-          if (err || res.req.method != 'PUT') throw err || new Error("failed to call tr.request.put through tor");
+          if (err || res.req.method != 'PUT') throw err || new Error("failed to call tr.put through tor");
           console.log("the requests public ip was: " + body);
           done();
         });

@@ -1,0 +1,15 @@
+{
+  "compilerOptions":{
+    "moduleResolution":"Node",
+    "sourceMap": true,
+    "target": "es2015"
+  },
+  "include": [
+    "index.ts",
+    "/test"
+  ],
+  "exclude": [
+    "node_modules",
+    "**/*.spec.ts"
+  ]
+}

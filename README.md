@@ -104,7 +104,7 @@ tr.TorControlPort.password = 'giraffe'
 ## API
 
 ```js
-// index.js
+// index.ts
 module.exports = {
   /**
    * This is a light wrapper function around the famous request nodeJS library, routing it through
@@ -151,7 +151,7 @@ module.exports = {
 Tests the original request library by connecting to http://api.ipify.org - returning your ip. Then makes a few additional requests, now through tor-request, and makes sure the ip's are different (went through tor).
 
 ```js
-mocha test/test.js
+mocha test/test.ts
 ```
 
 ## LICENSE

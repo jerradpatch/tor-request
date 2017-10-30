@@ -4,13 +4,21 @@
   "description": "send https requests through Tor.",
   "main": "index.js",
   "dependencies": {
+    "@reactivex/rxjs": "^5.5.2",
     "request": "^2.67.0",
     "socks": "^1.1.8"
   },
   "devDependencies": {
-    "mocha": "^2.3.4"
+    "@types/mocha": "^2.2.44",
+    "@types/node": "^8.0.47",
+    "@types/request": "^2.0.7",
+    "@types/rx": "^4.1.1",
+    "mocha": "^2.3.4",
+    "ts-node": "^3.3.0",
+    "typescript": "^2.5.3"
   },
   "scripts": {
+    "clean": "find ./test -name '*.js*'"
     "test": "mocha test/test.js",
     "test-all": "mocha test/*",
     "test-control-port": "mocha test/test-control-port.js"
@@ -19,7 +27,7 @@
   "email": "talmo.christian@gmail.com",
   "license": "MIT",
   "repository": {
-      "type": "git",
-      "url": "https://github.com/talmobi/tor-request"
+    "type": "git",
+    "url": "https://github.com/talmobi/tor-request"
   }
 }
