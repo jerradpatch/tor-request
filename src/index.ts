@@ -11,8 +11,8 @@ export class TorRequest {
     static createProxySettings(ipaddress?, port?, type?) {
 
         let proxy_setup = {
-            ipaddress: ipaddress || "localhost" || "localhost", // tor address
-            port: port || 9050 || 9050, // tor port
+            ipaddress: ipaddress || "localhost", // tor address
+            port: port || 9050, // tor port
             type: type || 5,
         };
         return proxy_setup;
@@ -109,6 +109,8 @@ class Tunnel {
     }
 
     private initTunnel(options: IOptions) {
+        let self = this;
+
         if (this.socketRaw) {
             this.socketRaw.destroy();
             this.socketRaw = null;
@@ -120,35 +122,34 @@ class Tunnel {
         }
 
         let socket = net.connect({
-            host: options.host || 'localhost',
-            port: options.port || 9051 // default Tor ControlPort
-        }, this.subjConnected.next.bind(this, true));
+            host: options.host,
+            port: options.port
+        }, function(rdy){
+            self.subjConnected.next(true);
+        });
 
-        socket.on('error', function (err) {
-            this.subjSocketResponse.error(new Error("tor_client:initTunnel:" + err));
+        socket.on('error', function(err) {
+            self.subjSocketResponse.error(new Error("tor_client:initTunnel:" + err));
 
-            this.initTunnel(this.options); //restart tunnel connection
+            self.initTunnel(self.options); //restart tunnel connection
         });
 
         let data = "";
-        socket.on('data', function (chunk) {
+        socket.on('data', function(chunk) {
             data += chunk.toString();
         });
 
-        socket.on('end', this.subjSocketResponse.next.bind(this, data));
+        socket.on('end', function(rdy) {
+            self.subjSocketResponse.next(data);
+        });
 
         this.socketRaw = socket;
     }
 
     private initCommandQueue(options) {
         this.subjSendCommand.asObservable()
-            .buffer(this.obsConnected)
-            .map((ret: ISendsCommand[])=>{
-                return Observable.from(ret);
-            })
-            .mergeAll()
-            .concatMap((comm: ISendsCommand) => {
-                return this.rawSendData.bind(this, options, comm.command, comm.waitTillServerReady)
+            .map((comm: ISendsCommand) => {
+                return this.rawSendData(options, comm.command, comm.waitTillServerReady)
                     .map((resp) => {
                         return {resp: resp, comm: comm};
                     })
@@ -157,6 +158,7 @@ class Tunnel {
                         return Observable.of({resp: '', comm: comm});
                     });
             })
+            .concatAll()
             .subscribe((respData: { resp: { [key: string]: string }, comm: ISendsCommand }) => {
                 if (!respData.comm.subjResponse.closed) {
                     respData.comm.subjResponse.next(respData.resp);
@@ -173,13 +175,13 @@ class Tunnel {
      * @param {boolean} waitTillServerReady
      * @returns {<{[p: string]: string}>}
      */
-    sendCommand(command: ICommand, waitTillServerReady?: boolean): Observable<{ [key: string]: string }> {
+    public sendCommand(command: ICommand, waitTillServerReady?: boolean): Observable<{ [key: string]: string }> {
         let subjResp = new ReplaySubject<{ [key: string]: string }>(1);
         this.subjSendCommand.next({subjResponse: subjResp, command: command, waitTillServerReady: waitTillServerReady});
         return subjResp.asObservable().take(1);
     }
 
-    private rawSendData(options: IOptions, command: ICommand, waitTillServerReady: boolean): Observable<{ [key: string]: string }> {
+    private rawSendData(options: IOptions, command: ICommand, waitTillServerReady: boolean | 'undefined'): Observable<{ [key: string]: string }> {
 
         let obsResp = Observable.create(obs => {
             this.obsSocketResponse
@@ -203,9 +205,9 @@ class Tunnel {
         if (waitTillServerReady && command.readyResponse)
             obsResp.switchMap(this.rawSendData(options, command.readyResponse, false));
 
-
-        let commands = ['authenticate "' + this.options.password + '"'].concat(command.commands);
-        let commandString = commands.join('\n') + '\n';
+        //need to authenticate first then send commands
+        let commandString = `authenticate \"${this.options.password}\"\n${command.commands}\nquit\n`;
+        // let commandString = commands.join('\n') + '\n';
 
         this.socketRaw.write(commandString);
 
@@ -247,10 +249,10 @@ class Tunnel {
 }
 
 export class TorClientControl {
-    commands: {
+    static commands = {
         signal: {
             newnym: {
-                commands: ['SIGNAL', 'NEWNYM'],
+                commands: ['signal newnym'],
                 response: {
                     success: '250 OK',
                     error: '552 Unrecognized signal'
@@ -259,7 +261,7 @@ export class TorClientControl {
         },
         getinfo: {
             address: {
-                commands: ['GETINFO', 'address'],
+                commands: ['GETINFO address'],
                 response: {
                     success: '250 OK',
                     error: '551'
@@ -273,8 +275,6 @@ export class TorClientControl {
     constructor(options: IOptions) {
         TorClientControl.optionsValid(options);
         this.tunnel = new Tunnel(options);
-
-        this.sendCommand = this.tunnel.sendCommand;
     }
 
     static optionsValid(options: IOptions) {
@@ -282,13 +282,11 @@ export class TorClientControl {
             throw new Error("tor_client:rawSendData: attempted to send a command without the password being set");
 
         options.host = options.host || 'localhost';
-        options.port = options.port || 9150;
+        options.port = options.port || 9050;
         options.type = options.type || 5;
     }
 
-    sendCommand: (command: ICommand, waitTillServerReady?: boolean) => Observable<{ [key: string]: string }>;
-
     newTorSession(waitForServer?: boolean) {
-        return this.sendCommand(this.commands.signal.newnym, waitForServer);
+        return this.tunnel.sendCommand(TorClientControl.commands.signal.newnym, waitForServer);
     }
 }

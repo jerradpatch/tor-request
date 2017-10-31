@@ -18,7 +18,7 @@
     "typescript": "^2.5.3"
   },
   "scripts": {
-    "clean": "find ./test -name '*.js*'"
+    "clean": "find ./src -name '*.js*' -exec rm {} \\; && find ./test -name '*.js*' -exec rm {} \\;",
     "test": "mocha test/test.js",
     "test-all": "mocha test/*",
     "test-control-port": "mocha test/test-control-port.js"

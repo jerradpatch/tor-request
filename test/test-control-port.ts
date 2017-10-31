@@ -1,9 +1,9 @@
-import {TorClientControl, TorRequest} from '../index';
+import {TorClientControl, TorRequest} from '../src/index';
 import * as request from 'request';
 
 var url = "http://api.ipify.org"; // this api returns your ip in the respnose body
 var httpsUrl = "https://api.ipify.org";
-var tcc = new TorClientControl({password:''});
+var tcc = new TorClientControl({password:'LoveMaoMao1234'});
 var tr = new TorRequest();
 
 describe('Testing request and tor-request with ControlPort enabled against ' + url, function () {
@@ -43,7 +43,7 @@ describe('Testing request and tor-request with ControlPort enabled against ' + u
         tcc.newTorSession()
             .subscribe(response=>{
                 done();
-            },(err)=>{
+            }, (err)=>{
                  throw err;
             });
     });
