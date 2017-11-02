@@ -8,11 +8,11 @@ import {BehaviorSubject, ReplaySubject, Subject, Observable} from "@reactivex/rx
 
 export class TorRequest {
 
-    static createProxySettings(ipaddress?, port?, type?) {
+    static createProxySettings(ipaddress?, socksPort?, type?) {
 
         let proxy_setup = {
             ipaddress: ipaddress || "localhost", // tor address
-            port: port || 9050, // tor port
+            port: socksPort || 9050, // tor port
             type: type || 5,
         };
         return proxy_setup;
@@ -43,7 +43,10 @@ export class TorRequest {
     }
 
     torRequest(uri, options, callback?) {
-        let params = request.initParams(uri, options, callback);
+        let _op = callback && options || {};
+        let _cb = options && callback || options;
+
+        let params = request.initParams(uri, _op, _cb);
         params.agent = TorRequest.createAgent(params.uri || params.url);
 
         return request(params, function (err, res, body) {
@@ -67,7 +70,47 @@ export class TorRequest {
 
 }
 
+
+
+
 //rewritten on the grounds that code requiring a response from an async request was not easily accomplished == mess to ensue
+
+const commands = {
+    authenticate: function(password) {
+        return {
+            commands: `authenticate "${password}"`,
+            response: {
+                success: '250 OK',
+                error: '515 Bad authentication' //515 Bad authentication
+            }
+        }
+    },
+    getinfo: {
+        address: {
+            commands: ['GETINFO address'],
+            response: {
+                success: '250 OK',
+                error: '551 Internal error'
+            }
+        }
+    },
+    signal: {
+        newnym: {
+            commands: ['signal newnym'],
+            response: {
+                success: '250 OK',
+                error: '552 Unrecognized signal'
+            },
+            readyResponse: { working on accepting getting the ready response to work;
+                commands: ['signal newnym'],
+                response: {
+                    success: '250 OK',
+                    error: '552 Unrecognized signal'
+                }
+            }
+        }
+    }
+};
 interface ICommand {
     commands: string[];
     response: {
@@ -80,7 +123,8 @@ interface ICommand {
 interface IOptions {
     password: string;
     host?: string;
-    port?: number;
+    controlPort?: number;
+    socksPort?: number;
     type?: number;
 }
 
@@ -103,9 +147,14 @@ class Tunnel {
 
     constructor(private options) {
 
-        this.obsConnected = new BehaviorSubject<boolean>(false);
+        this.obsConnected
+            .subscribe((val)=>{
+                if(val)
+                    this.initCommandQueue(options)
+
+            });
+
         this.initTunnel(options);
-        this.initCommandQueue(options)
     }
 
     private initTunnel(options: IOptions) {
@@ -123,30 +172,42 @@ class Tunnel {
 
         let socket = net.connect({
             host: options.host,
-            port: options.port
-        }, function(rdy){
-            self.subjConnected.next(true);
+            port: options.controlPort
+        }, function() {
+            return self.rawSendData.call(self, options, commands.authenticate(options.password), true)
+                .take(1)
+                .subscribe(() => {
+                    self.subjConnected.next(true);
+                }, (err) => {
+                    throw new Error(`The client couldn't authenticate with Tor. Check that the given control port and password is correct. Error: ${err}`)
+                });
         });
 
         socket.on('error', function(err) {
-            self.subjSocketResponse.error(new Error("tor_client:initTunnel:" + err));
-
+            self.subjSocketResponse.error(new Error("tor_client:initTunnel:error:" + err));
             self.initTunnel(self.options); //restart tunnel connection
         });
 
         let data = "";
         socket.on('data', function(chunk) {
             data += chunk.toString();
+            if(data.endsWith("\r\n")) {
+                self.subjSocketResponse.next(data.slice());
+                data = "";
+            }
         });
 
         socket.on('end', function(rdy) {
-            self.subjSocketResponse.next(data);
+            self.subjSocketResponse.error(new Error("tor_client:initTunnel:error: socket connection closed unexpectidly"));
+            self.initTunnel(self.options); //restart tunnel connection
         });
 
         this.socketRaw = socket;
     }
 
     private initCommandQueue(options) {
+
+
         this.subjSendCommand.asObservable()
             .map((comm: ISendsCommand) => {
                 return this.rawSendData(options, comm.command, comm.waitTillServerReady)
@@ -175,25 +236,25 @@ class Tunnel {
      * @param {boolean} waitTillServerReady
      * @returns {<{[p: string]: string}>}
      */
-    public sendCommand(command: ICommand, waitTillServerReady?: boolean): Observable<{ [key: string]: string }> {
+    public sendCommand(command: ICommand, dontWaitForServer?: boolean): Observable<{ [key: string]: string }> {
         let subjResp = new ReplaySubject<{ [key: string]: string }>(1);
-        this.subjSendCommand.next({subjResponse: subjResp, command: command, waitTillServerReady: waitTillServerReady});
+        this.subjSendCommand.next({subjResponse: subjResp, command: command, dontWaitForServer: dontWaitForServer});
         return subjResp.asObservable().take(1);
     }
 
-    private rawSendData(options: IOptions, command: ICommand, waitTillServerReady: boolean | 'undefined'): Observable<{ [key: string]: string }> {
+    private rawSendData(options: IOptions, command: ICommand, dontWaitForServer: boolean | 'undefined'): Observable<{ [key: string]: string }> {
 
         let obsResp = Observable.create(obs => {
             this.obsSocketResponse
                 .take(1)
                 .subscribe(res => {
                     switch (res) {
-                        case command.response.success:
-                            let parsed = Tunnel.parseSuccessfulResponseData(res);
-                            obs.next(parsed);
+                        case command.response.success+"\r\n":
+                            // let parsed = Tunnel.parseSuccessfulResponseData(res);
+                            obs.next(res);
                             obs.complete();
                             break;
-                        case command.response.error:
+                        case command.response.error+"\r\n":
                             obs.error(new Error("tor_client:rawSendData:" + res));
                             break;
                         default:
@@ -202,11 +263,11 @@ class Tunnel {
                 })
         });
 
-        if (waitTillServerReady && command.readyResponse)
+        if (!dontWaitForServer && command.readyResponse)
             obsResp.switchMap(this.rawSendData(options, command.readyResponse, false));
 
         //need to authenticate first then send commands
-        let commandString = `authenticate \"${this.options.password}\"\n${command.commands}\nquit\n`;
+        let commandString = `${command.commands}\n`;
         // let commandString = commands.join('\n') + '\n';
 
         this.socketRaw.write(commandString);
@@ -215,60 +276,40 @@ class Tunnel {
 
     }
 
-    static parseSuccessfulResponseData(data) {
-        let lines = data.split(os.EOL).slice(0, -1);
-
-        let success = lines.every(function (val) {
-            // each response from the ControlPort should start with 250 (OK STATUS)
-            return val.indexOf('250') == 0;
-        });
-
-        if (success && lines.length >= 2) {
-            //remove ending success lines (hold no value)
-            let valueLines = lines.slice(0, lines.length - 2);
-
-            let ret = valueLines.filter(line => {
-                //remove all ok lines
-                return line !== "250 OK\r";
-
-            }).map(line => {
-                //remove new line return chars
-                return line.slice(4).replace(/\r?\n|\r/, "");
-
-            }).reduce((p, c: string) => {
-                //convert to an object
-                let split = c.split("=");
-                p[split[0]] = split[1];
-                return p;
-
-            }, {});
-            return ret;
-        }
-    }
+    // static parseSuccessfulResponseData(data) {
+    //     let lines = data.split(os.EOL).slice(0, -1);
+    //
+    //     let success = lines.every(function (val) {
+    //         // each response from the ControlPort should start with 250 (OK STATUS)
+    //         return val.indexOf('250') == 0;
+    //     });
+    //
+    //     if (success && lines.length >= 2) {
+    //         //remove ending success lines (hold no value)
+    //         let valueLines = lines.slice(0, lines.length - 2);
+    //
+    //         let ret = valueLines.filter(line => {
+    //             //remove all ok lines
+    //             return line !== "250 OK\r";
+    //
+    //         }).map(line => {
+    //             //remove new line return chars
+    //             return line.slice(4).replace(/\r?\n|\r/, "");
+    //
+    //         }).reduce((p, c: string) => {
+    //             //convert to an object
+    //             let split = c.split("=");
+    //             p[split[0]] = split[1];
+    //             return p;
+    //
+    //         }, {});
+    //         return ret;
+    //     }
+    // }
 
 }
 
 export class TorClientControl {
-    static commands = {
-        signal: {
-            newnym: {
-                commands: ['signal newnym'],
-                response: {
-                    success: '250 OK',
-                    error: '552 Unrecognized signal'
-                }
-            }
-        },
-        getinfo: {
-            address: {
-                commands: ['GETINFO address'],
-                response: {
-                    success: '250 OK',
-                    error: '551'
-                }
-            }
-        }
-    };
 
     private tunnel;
 
@@ -282,11 +323,11 @@ export class TorClientControl {
             throw new Error("tor_client:rawSendData: attempted to send a command without the password being set");
 
         options.host = options.host || 'localhost';
-        options.port = options.port || 9050;
+        options.controlPort = options.controlPort || 9051;
         options.type = options.type || 5;
     }
 
-    newTorSession(waitForServer?: boolean) {
-        return this.tunnel.sendCommand(TorClientControl.commands.signal.newnym, waitForServer);
+    newTorSession(dontWaitForServer?: boolean) {
+        return this.tunnel.sendCommand(commands.signal.newnym, dontWaitForServer);
     }
 }
