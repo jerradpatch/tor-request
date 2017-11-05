@@ -102,16 +102,16 @@ describe('Testing request and tor-request against ' + url, function () {
       });
     });
 
-    describe('test params.url alias for params.uri', function () {
-      it('should return without error', function (done) {
-        tr.put({url: url}, function (err, res, body) {
-          console.log("method was: " + res.req.method);
-          if (err || res.req.method != 'PUT') throw err || new Error("failed to call tr.put through tor");
-          console.log("the requests public ip was: " + body);
-          done();
-        });
-      });
-    });
+    // describe('test params.url alias for params.uri', function () {
+    //   it('should return without error', function (done) {
+    //     tr.put({url: url}, function (err, res, body) {
+    //       console.log("method was: " + res.req.method);
+    //       if (err || res.req.method != 'PUT') throw err || new Error("failed to call tr.put through tor");
+    //       console.log("the requests public ip was: " + body);
+    //       done();
+    //     });
+    //   });
+    // });
 
   })
 

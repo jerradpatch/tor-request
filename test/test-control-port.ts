@@ -1,12 +1,22 @@
 import {TorClientControl, TorRequest} from '../src/index';
 import * as request from 'request';
+import * as pjson from 'pjson';
 
 var url = "http://api.ipify.org"; // this api returns your ip in the respnose body
-var tcc = new TorClientControl({password:'LoveMaoMao1234'});
+var tcc = new TorClientControl({password:pjson['torClient'].password});
 var tr = new TorRequest();
 
 describe('Testing request and tor-request with ControlPort enabled against ' + url, function () {
   this.timeout(15000);
+
+    describe('test password exists', function () {
+        it('should return without error', function (done) {
+            if(!pjson['torClient'] || !pjson['torClient'].password)
+                throw "password did not exist in package.json, 'torClient.password'";
+            done();
+        });
+    });
+
 
   describe('test http request', function () {
     it('should return without error', function (done) {
@@ -40,8 +50,8 @@ describe('Testing request and tor-request with ControlPort enabled against ' + u
   describe('request a new tor session with tr.newTorSession', function () {
     it('should return without error', function (done) {
         tcc.newTorSession()
-            .subscribe((response: string)=>{
-                if(response.indexOf("250") != 0)
+            .subscribe((ipAddress: string)=>{
+                if(!ipAddress)
                     throw "invalid response, not a 250";
                 done();
             }, (err)=>{
@@ -66,24 +76,18 @@ describe('Testing request and tor-request with ControlPort enabled against ' + u
                 throw "no ip address was returned on first request";
 
               tcc.newTorSession()
-                .subscribe(response => {
+                .subscribe((secondIp: string) => {
 
-                    if(response.indexOf("250") != 0)
-                        throw "invalid response, not a 250";
+                  if(!secondIp)
+                      throw "no ip address was returned on second request";
 
-                    tr.torRequest(url, {}, function (err, res, secondIp) {
-                      if(err)
-                          throw err;
-                      if(!secondIp)
-                          throw "no ip address was returned on second request";
+                  if(firstIp === secondIp || public_ip === secondIp)
+                    throw `The public ip was the same as one of the tor ipAddresses; public_op: ${public_ip}, firstTorIp: ${firstIp}, secondTorIp: ${secondIp}`;
 
-                      if(firstIp === secondIp || public_ip === secondIp)
-                        throw `The public ip was the same as one of the tor ipAddresses; public_op: ${public_ip}, firstTorIp: ${firstIp}, secondTorIp: ${secondIp}`;
+                  console.log(`success, The requests public_op: ${public_ip}, firstTorIp: ${firstIp}, secondTorIp: ${secondIp}`);
 
-                      console.log(`success, The requests public_op: ${public_ip}, firstTorIp: ${firstIp}, secondTorIp: ${secondIp}`);
+                  done();
 
-                      done();
-                    });
                 }, (err) => {
                     throw err;
                 });

@@ -19,6 +19,7 @@ export class TorRequest {
     }
 
     static createAgent(url) {
+
         let proxy_setup = TorRequest.createProxySettings();
 
         let isHttps = url.indexOf('https://') >= 0;
@@ -38,7 +39,7 @@ export class TorRequest {
         return function (uri, options, callback?) {
             let params = request.initParams(uri, options, callback);
             params.method = method;
-            return this.torRequest(params, params.callback);
+            return this.torRequest(params.uri || params.url, params, params.callback);
         }
     }
 
@@ -47,6 +48,7 @@ export class TorRequest {
         let _cb = options && callback || options;
 
         let params = request.initParams(uri, _op, _cb);
+
         params.agent = TorRequest.createAgent(params.uri || params.url);
 
         return request(params, function (err, res, body) {
@@ -70,53 +72,78 @@ export class TorRequest {
 
 }
 
-
-
-
 //rewritten on the grounds that code requiring a response from an async request was not easily accomplished == mess to ensue
 
+function circuitRdy(resp: string[]): string {
+    let allBuilt = resp.reduce((p,c)=>{
+        let matches = c.match(/ BUILT |^\.$|^250/);
+        return matches && matches.length > 0 && p;
+    }, true);
+
+    if(allBuilt){
+        return "success";
+    } else {
+        let someReady = resp.reduce((p,c)=>{
+            return c.match(/ LAUNCHED|GUARD_WAIT|EXTENDED /) || p;
+        }, false);
+
+        if(someReady){
+            return "wait";
+        } else {
+            throw "circuit failed: "+resp;
+        }
+    }
+}
+
+function twoFiftyOk(resp: string[]): string {
+    let item = (resp && resp.length > 0 ? resp[0] : null);
+    if(item == '250 OK') {
+        return 'success';
+    } else {
+        throw resp;
+    }
+}
+
 const commands = {
-    authenticate: function(password) {
+    authenticate: function(password): ICommand {
         return {
-            commands: `authenticate "${password}"`,
-            response: {
-                success: '250 OK',
-                error: '515 Bad authentication' //515 Bad authentication
-            }
+            commands: [`authenticate "${password}"`],
+            response: twoFiftyOk
         }
     },
     getinfo: {
         address: {
             commands: ['GETINFO address'],
-            response: {
-                success: '250 OK',
-                error: '551 Internal error'
-            }
-        }
+            response: twoFiftyOk
+        },
+        // 'circuit-status': {
+        //     commands: ['GETINFO circuit-status'],
+        //     response: function(resp) {
+        //         switch (resp) {
+        //             case '250 OK':
+        //                 return 'success';
+        //             case '551 Internal error':
+        //                 throw '551 Internal error';
+        //             default:
+        //                 throw 'unknown error while getting info address from control port';
+        //         }
+        //     }
+        // }
     },
     signal: {
         newnym: {
             commands: ['signal newnym'],
-            response: {
-                success: '250 OK',
-                error: '552 Unrecognized signal'
-            },
-            readyResponse: { working on accepting getting the ready response to work;
-                commands: ['signal newnym'],
-                response: {
-                    success: '250 OK',
-                    error: '552 Unrecognized signal'
-                }
+            response: twoFiftyOk,
+            readyResponse: {
+                commands: ['GETINFO circuit-status'],
+                response: circuitRdy
             }
         }
     }
 };
 interface ICommand {
     commands: string[];
-    response: {
-        success: string
-        error: string
-    };
+    response: (resp: string[]) => string,
     readyResponse?: ICommand;
 }
 
@@ -130,7 +157,7 @@ interface IOptions {
 
 interface ISendsCommand {
     command: ICommand,
-    waitTillServerReady: boolean | 'undefined',
+    dontWaitForServer: boolean | 'undefined',
     subjResponse: ReplaySubject<{ [key: string]: string }>
 }
 
@@ -210,7 +237,7 @@ class Tunnel {
 
         this.subjSendCommand.asObservable()
             .map((comm: ISendsCommand) => {
-                return this.rawSendData(options, comm.command, comm.waitTillServerReady)
+                return this.rawSendData(options, comm.command, comm.dontWaitForServer)
                     .map((resp) => {
                         return {resp: resp, comm: comm};
                     })
@@ -244,71 +271,47 @@ class Tunnel {
 
     private rawSendData(options: IOptions, command: ICommand, dontWaitForServer: boolean | 'undefined'): Observable<{ [key: string]: string }> {
 
-        let obsResp = Observable.create(obs => {
-            this.obsSocketResponse
-                .take(1)
-                .subscribe(res => {
-                    switch (res) {
-                        case command.response.success+"\r\n":
-                            // let parsed = Tunnel.parseSuccessfulResponseData(res);
-                            obs.next(res);
-                            obs.complete();
-                            break;
-                        case command.response.error+"\r\n":
-                            obs.error(new Error("tor_client:rawSendData:" + res));
-                            break;
-                        default:
-                            obs.error(new Error(`tor_client:rawSendData:default unknown error response, res: ${res}`));
-                    }
-                })
-        });
-
-        if (!dontWaitForServer && command.readyResponse)
-            obsResp.switchMap(this.rawSendData(options, command.readyResponse, false));
-
-        //need to authenticate first then send commands
-        let commandString = `${command.commands}\n`;
-        // let commandString = commands.join('\n') + '\n';
-
-        this.socketRaw.write(commandString);
+        let obsResp = this.rawTryAgain(command, 0)
+            .switchMap((firstReponse)=> {
+                return (!dontWaitForServer && command.readyResponse?
+                    Observable.defer(this.rawSendData.bind(this, options, command.readyResponse, false)) :
+                    Observable.of(firstReponse));
+            });
 
         return obsResp;
-
     }
 
-    // static parseSuccessfulResponseData(data) {
-    //     let lines = data.split(os.EOL).slice(0, -1);
-    //
-    //     let success = lines.every(function (val) {
-    //         // each response from the ControlPort should start with 250 (OK STATUS)
-    //         return val.indexOf('250') == 0;
-    //     });
-    //
-    //     if (success && lines.length >= 2) {
-    //         //remove ending success lines (hold no value)
-    //         let valueLines = lines.slice(0, lines.length - 2);
-    //
-    //         let ret = valueLines.filter(line => {
-    //             //remove all ok lines
-    //             return line !== "250 OK\r";
-    //
-    //         }).map(line => {
-    //             //remove new line return chars
-    //             return line.slice(4).replace(/\r?\n|\r/, "");
-    //
-    //         }).reduce((p, c: string) => {
-    //             //convert to an object
-    //             let split = c.split("=");
-    //             p[split[0]] = split[1];
-    //             return p;
-    //
-    //         }, {});
-    //         return ret;
-    //     }
-    // }
+    rawTryAgain(command: ICommand, delay) {
+        let obss =  this.obsSocketResponse
+        .take(1)
+        .delay(delay)
+        .map(res => {
+            let lines = res && res.split(os.EOL).slice(0, -1).map((lin: string)=> {
+                return (lin.endsWith("\r") ? lin.slice(0, -1) : lin);
+            });
+
+            let resp: string = command.response(lines);
+            if (resp == 'success') {
+                // let parsed = Tunnel.parseSuccessfulResponseData(res);
+                return Observable.of(lines);
+            } else {//wait
+                return this.rawTryAgain(command, 500);
+            }
+        })
+        .switch();
+
+        setTimeout(()=> {
+            let commandString = `${command.commands}\n`;
+            this.socketRaw.write(commandString);
+        });
+
+        return obss;
+    }
 
 }
 
+
+const urlIfConfig = "http://api.ipify.org";
 export class TorClientControl {
 
     private tunnel;
@@ -327,7 +330,35 @@ export class TorClientControl {
         options.type = options.type || 5;
     }
 
-    newTorSession(dontWaitForServer?: boolean) {
-        return this.tunnel.sendCommand(commands.signal.newnym, dontWaitForServer);
+    newTorSession(): Observable<string[]> {
+        return this.getTorIp()
+            .concatMap(val=>{
+                return this.tunnel.sendCommand(commands.signal.newnym, false)
+                    .map(()=>{
+                        return val;
+                    })
+            })
+            .switchMap((orgIpaddress)=>{
+                return this.getTorIp()
+                    .do(newIp=>{
+                        if(newIp === orgIpaddress)
+                            throw "new Ip same as old "+newIp+" "+orgIpaddress;
+                    })
+                    .retryWhen(on=>on.delay(4000))
+            })
+
+    }
+
+    private getTorIp(): Observable<string> {
+        let ntr = new TorRequest();
+        return Observable.create((obs) => {
+            ntr.get(urlIfConfig, function (err, res, body) {
+                if(err) {
+                    obs.error(err);
+                } else {
+                    obs.next(body);
+                }
+            });
+        })
     }
 }
