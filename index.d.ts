@@ -26,7 +26,7 @@ export interface IOptions {
 }
 export declare class TorClientControl {
     private tunnel;
-    constructor(options: IOptions);
+    constructor(options?: IOptions);
     static optionsValid(options: IOptions): any;
     newTorSession(): Observable<string[]>;
     private getTorIp();
