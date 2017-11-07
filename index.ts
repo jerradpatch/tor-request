@@ -1,5 +1,4 @@
 
-
 import * as socks from 'socks';
 import * as request from 'request';
 import * as net from 'net';
@@ -147,7 +146,7 @@ interface ICommand {
     readyResponse?: ICommand;
 }
 
-interface IOptions {
+export interface IOptions {
     password: string;
     host?: string;
     controlPort?: number;
@@ -303,7 +302,7 @@ class Tunnel {
         setTimeout(()=> {
             let commandString = `${command.commands}\n`;
             this.socketRaw.write(commandString);
-        });
+        }, 0);
 
         return obss;
     }

@@ -1,8 +1,15 @@
 {
   "compilerOptions":{
+    "alwaysStrict":true,
+    "declaration":true,
     "moduleResolution":"Node",
     "sourceMap": true,
-    "target": "es2015"
+    "target": "es5",
+    "pretty":true,
+    "lib": [
+      "es5",
+      "es2015.core"
+    ]
   },
   "include": [
     "index.ts",

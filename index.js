@@ -1,10 +1,12 @@
-import * as socks from 'socks';
-import * as request from 'request';
-import * as net from 'net';
-import * as os from 'os';
-import { BehaviorSubject, ReplaySubject, Subject, Observable } from "@reactivex/rxjs";
-export class TorRequest {
-    constructor() {
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+var socks = require("socks");
+var request = require("request");
+var net = require("net");
+var os = require("os");
+var rxjs_1 = require("@reactivex/rxjs");
+var TorRequest = /** @class */ (function () {
+    function TorRequest() {
         this.get = this.verbFunc('get');
         this.head = this.verbFunc('head');
         this.post = this.verbFunc('post');
@@ -12,59 +14,61 @@ export class TorRequest {
         this.patch = this.verbFunc('patch');
         this.del = this.verbFunc('del');
     }
-    static createProxySettings(ipaddress, socksPort, type) {
-        let proxy_setup = {
+    TorRequest.createProxySettings = function (ipaddress, socksPort, type) {
+        var proxy_setup = {
             ipaddress: ipaddress || "localhost",
             port: socksPort || 9050,
             type: type || 5,
         };
         return proxy_setup;
-    }
-    static createAgent(url) {
-        let proxy_setup = TorRequest.createProxySettings();
-        let isHttps = url.indexOf('https://') >= 0;
-        let socksAgent = new socks.Agent({
+    };
+    TorRequest.createAgent = function (url) {
+        var proxy_setup = TorRequest.createProxySettings();
+        var isHttps = url.indexOf('https://') >= 0;
+        var socksAgent = new socks.Agent({
             proxy: proxy_setup,
         }, isHttps, // https
         false // rejectUnauthorized option passed to tls.connect().
         );
         return socksAgent;
-    }
-    verbFunc(verb) {
-        let method = verb === 'del' ? 'DELETE' : verb.toUpperCase();
+    };
+    TorRequest.prototype.verbFunc = function (verb) {
+        var method = verb === 'del' ? 'DELETE' : verb.toUpperCase();
         return function (uri, options, callback) {
-            let params = request.initParams(uri, options, callback);
+            var params = request.initParams(uri, options, callback);
             params.method = method;
             return this.torRequest(params.uri || params.url, params, params.callback);
         };
-    }
-    torRequest(uri, options, callback) {
-        let _op = callback && options || {};
-        let _cb = options && callback || options;
-        let params = request.initParams(uri, _op, _cb);
+    };
+    TorRequest.prototype.torRequest = function (uri, options, callback) {
+        var _op = callback && options || {};
+        var _cb = options && callback || options;
+        var params = request.initParams(uri, _op, _cb);
         params.agent = TorRequest.createAgent(params.uri || params.url);
         return request(params, function (err, res, body) {
             // Connection header by default is keep-alive,
             // we have to manually end the socket
-            let agent = params.agent;
+            var agent = params.agent;
             if (agent && agent['encryptedSocket']) {
                 agent['encryptedSocket'].end();
             }
             params.callback(err, res, body);
         });
-    }
-}
+    };
+    return TorRequest;
+}());
+exports.TorRequest = TorRequest;
 //rewritten on the grounds that code requiring a response from an async request was not easily accomplished == mess to ensue
 function circuitRdy(resp) {
-    let allBuilt = resp.reduce((p, c) => {
-        let matches = c.match(/ BUILT |^\.$|^250/);
+    var allBuilt = resp.reduce(function (p, c) {
+        var matches = c.match(/ BUILT |^\.$|^250/);
         return matches && matches.length > 0 && p;
     }, true);
     if (allBuilt) {
         return "success";
     }
     else {
-        let someReady = resp.reduce((p, c) => {
+        var someReady = resp.reduce(function (p, c) {
             return c.match(/ LAUNCHED|GUARD_WAIT|EXTENDED /) || p;
         }, false);
         if (someReady) {
@@ -76,7 +80,7 @@ function circuitRdy(resp) {
     }
 }
 function twoFiftyOk(resp) {
-    let item = (resp && resp.length > 0 ? resp[0] : null);
+    var item = (resp && resp.length > 0 ? resp[0] : null);
     if (item == '250 OK') {
         return 'success';
     }
@@ -84,10 +88,10 @@ function twoFiftyOk(resp) {
         throw resp;
     }
 }
-const commands = {
+var commands = {
     authenticate: function (password) {
         return {
-            commands: [`authenticate "${password}"`],
+            commands: ["authenticate \"" + password + "\""],
             response: twoFiftyOk
         };
     },
@@ -108,49 +112,50 @@ const commands = {
         }
     }
 };
-class Tunnel {
-    constructor(options) {
+var Tunnel = /** @class */ (function () {
+    function Tunnel(options) {
+        var _this = this;
         this.options = options;
-        this.subjConnected = new BehaviorSubject(false);
+        this.subjConnected = new rxjs_1.BehaviorSubject(false);
         this.obsConnected = this.subjConnected.asObservable();
-        this.subjSocketResponse = new Subject();
+        this.subjSocketResponse = new rxjs_1.Subject();
         this.obsSocketResponse = this.subjSocketResponse.asObservable();
-        this.subjSendCommand = new Subject();
+        this.subjSendCommand = new rxjs_1.Subject();
         this.obsConnected
-            .subscribe((val) => {
+            .subscribe(function (val) {
             if (val)
-                this.initCommandQueue(options);
+                _this.initCommandQueue(options);
         });
         this.initTunnel(options);
     }
-    initTunnel(options) {
-        let self = this;
+    Tunnel.prototype.initTunnel = function (options) {
+        var self = this;
         if (this.socketRaw) {
             this.socketRaw.destroy();
             this.socketRaw = null;
         }
         if (this.subjSocketResponse && !this.subjSocketResponse.closed) {
             this.subjSocketResponse.complete();
-            this.subjSocketResponse = new Subject();
+            this.subjSocketResponse = new rxjs_1.Subject();
             this.obsSocketResponse = this.subjSocketResponse.asObservable();
         }
-        let socket = net.connect({
+        var socket = net.connect({
             host: options.host,
             port: options.controlPort
         }, function () {
             return self.rawSendData.call(self, options, commands.authenticate(options.password), true)
                 .take(1)
-                .subscribe(() => {
+                .subscribe(function () {
                 self.subjConnected.next(true);
-            }, (err) => {
-                throw new Error(`The client couldn't authenticate with Tor. Check that the given control port and password is correct. Error: ${err}`);
+            }, function (err) {
+                throw new Error("The client couldn't authenticate with Tor. Check that the given control port and password is correct. Error: " + err);
             });
         });
         socket.on('error', function (err) {
             self.subjSocketResponse.error(new Error("tor_client:initTunnel:error:" + err));
             self.initTunnel(self.options); //restart tunnel connection
         });
-        let data = "";
+        var data = "";
         socket.on('data', function (chunk) {
             data += chunk.toString();
             if (data.endsWith("\r\n")) {
@@ -163,27 +168,28 @@ class Tunnel {
             self.initTunnel(self.options); //restart tunnel connection
         });
         this.socketRaw = socket;
-    }
-    initCommandQueue(options) {
+    };
+    Tunnel.prototype.initCommandQueue = function (options) {
+        var _this = this;
         this.subjSendCommand.asObservable()
-            .map((comm) => {
-            return this.rawSendData(options, comm.command, comm.dontWaitForServer)
-                .map((resp) => {
+            .map(function (comm) {
+            return _this.rawSendData(options, comm.command, comm.dontWaitForServer)
+                .map(function (resp) {
                 return { resp: resp, comm: comm };
             })
-                .catch((err) => {
+                .catch(function (err) {
                 comm.subjResponse.error(err);
-                return Observable.of({ resp: '', comm: comm });
+                return rxjs_1.Observable.of({ resp: '', comm: comm });
             });
         })
             .concatAll()
-            .subscribe((respData) => {
+            .subscribe(function (respData) {
             if (!respData.comm.subjResponse.closed) {
                 respData.comm.subjResponse.next(respData.resp);
                 respData.comm.subjResponse.complete();
             }
         });
-    }
+    };
     /**
      * sends the command and gets the response for the given command
      * ex: getinfo ipaddress => {ipaddress: "123.123.123.123"}
@@ -191,78 +197,82 @@ class Tunnel {
      * @param {boolean} waitTillServerReady
      * @returns {<{[p: string]: string}>}
      */
-    sendCommand(command, dontWaitForServer) {
-        let subjResp = new ReplaySubject(1);
+    Tunnel.prototype.sendCommand = function (command, dontWaitForServer) {
+        var subjResp = new rxjs_1.ReplaySubject(1);
         this.subjSendCommand.next({ subjResponse: subjResp, command: command, dontWaitForServer: dontWaitForServer });
         return subjResp.asObservable().take(1);
-    }
-    rawSendData(options, command, dontWaitForServer) {
-        let obsResp = this.rawTryAgain(command, 0)
-            .switchMap((firstReponse) => {
+    };
+    Tunnel.prototype.rawSendData = function (options, command, dontWaitForServer) {
+        var _this = this;
+        var obsResp = this.rawTryAgain(command, 0)
+            .switchMap(function (firstReponse) {
             return (!dontWaitForServer && command.readyResponse ?
-                Observable.defer(this.rawSendData.bind(this, options, command.readyResponse, false)) :
-                Observable.of(firstReponse));
+                rxjs_1.Observable.defer(_this.rawSendData.bind(_this, options, command.readyResponse, false)) :
+                rxjs_1.Observable.of(firstReponse));
         });
         return obsResp;
-    }
-    rawTryAgain(command, delay) {
-        let obss = this.obsSocketResponse
+    };
+    Tunnel.prototype.rawTryAgain = function (command, delay) {
+        var _this = this;
+        var obss = this.obsSocketResponse
             .take(1)
             .delay(delay)
-            .map(res => {
-            let lines = res && res.split(os.EOL).slice(0, -1).map((lin) => {
+            .map(function (res) {
+            var lines = res && res.split(os.EOL).slice(0, -1).map(function (lin) {
                 return (lin.endsWith("\r") ? lin.slice(0, -1) : lin);
             });
-            let resp = command.response(lines);
+            var resp = command.response(lines);
             if (resp == 'success') {
                 // let parsed = Tunnel.parseSuccessfulResponseData(res);
-                return Observable.of(lines);
+                return rxjs_1.Observable.of(lines);
             }
             else {
-                return this.rawTryAgain(command, 500);
+                return _this.rawTryAgain(command, 500);
             }
         })
             .switch();
-        setTimeout(() => {
-            let commandString = `${command.commands}\n`;
-            this.socketRaw.write(commandString);
-        });
+        setTimeout(function () {
+            var commandString = command.commands + "\n";
+            _this.socketRaw.write(commandString);
+        }, 0);
         return obss;
-    }
-}
-const urlIfConfig = "http://api.ipify.org";
-export class TorClientControl {
-    constructor(options) {
+    };
+    return Tunnel;
+}());
+var urlIfConfig = "http://api.ipify.org";
+var TorClientControl = /** @class */ (function () {
+    function TorClientControl(options) {
         TorClientControl.optionsValid(options);
         this.tunnel = new Tunnel(options);
     }
-    static optionsValid(options) {
+    TorClientControl.optionsValid = function (options) {
         if (options.password == 'undefined')
             throw new Error("tor_client:rawSendData: attempted to send a command without the password being set");
         options.host = options.host || 'localhost';
         options.controlPort = options.controlPort || 9051;
         options.type = options.type || 5;
-    }
-    newTorSession() {
+    };
+    TorClientControl.prototype.newTorSession = function () {
+        var _this = this;
         return this.getTorIp()
-            .concatMap(val => {
-            return this.tunnel.sendCommand(commands.signal.newnym, false)
-                .map(() => {
+            .concatMap(function (val) {
+            return _this.tunnel.sendCommand(commands.signal.newnym, false)
+                .map(function () {
                 return val;
             });
         })
-            .switchMap((orgIpaddress) => {
-            return this.getTorIp()
-                .do(newIp => {
+            .switchMap(function (orgIpaddress) {
+            return _this.getTorIp()
+                .do(function (newIp) {
                 if (newIp === orgIpaddress)
                     throw "new Ip same as old " + newIp + " " + orgIpaddress;
             })
-                .retryWhen(on => on.delay(4000));
+                .retryWhen(function (on) { return on.delay(4000); });
         });
-    }
-    getTorIp() {
-        let ntr = new TorRequest();
-        return Observable.create((obs) => {
+    };
+    TorClientControl.prototype.getTorIp = function () {
+        var ntr = new TorRequest();
+        return rxjs_1.Observable.create(function (obs) {
             ntr.get(urlIfConfig, function (err, res, body) {
                 if (err) {
                     obs.error(err);
@@ -272,6 +282,8 @@ export class TorClientControl {
                 }
             });
         });
-    }
-}
+    };
+    return TorClientControl;
+}());
+exports.TorClientControl = TorClientControl;
 //# sourceMappingURL=index.js.map

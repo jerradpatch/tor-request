@@ -19,8 +19,8 @@
     "typescript": "^2.5.3"
   },
   "scripts": {
-    "clean": "find ./src -name '*.js*' -exec rm {} \\; && find ./test -name '*.js*' -exec rm {} \\;",
-    "test": "mocha test/test.js",
+    "clean": "rm ./index.js && find ./test -name '*.js*' -exec rm {} \\;",
+    "test": "./node_modules/mocha/bin/_mocha --compilers ts:ts-node/register,tsx:ts-node/register -P ./ --timeout 0 --ui bdd /home/jp/test/test",
     "test-all": "mocha test/*",
     "test-control-port": "mocha test/test-control-port.js"
   },
