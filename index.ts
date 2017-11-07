@@ -3,6 +3,8 @@ import * as socks from 'socks';
 import * as request from 'request';
 import * as net from 'net';
 import * as os from 'os';
+import * as pjson from 'pjson';
+
 import {BehaviorSubject, ReplaySubject, Subject, Observable} from "@reactivex/rxjs";
 
 export class TorRequest {
@@ -315,9 +317,11 @@ export class TorClientControl {
 
     private tunnel;
 
-    constructor(options: IOptions) {
-        TorClientControl.optionsValid(options);
-        this.tunnel = new Tunnel(options);
+    constructor(options?: IOptions) {
+        let ops = options || pjson['torClient'] || {};
+
+        TorClientControl.optionsValid(ops);
+        this.tunnel = new Tunnel(ops);
     }
 
     static optionsValid(options: IOptions): any {

@@ -3,7 +3,7 @@ import * as request from 'request';
 import * as pjson from 'pjson';
 
 var url = "http://api.ipify.org"; // this api returns your ip in the respnose body
-var tcc = new TorClientControl({password:pjson['torClient'].password});
+var tcc = new TorClientControl();
 var tr = new TorRequest();
 
 describe('Testing request and tor-request with ControlPort enabled against ' + url, function () {
