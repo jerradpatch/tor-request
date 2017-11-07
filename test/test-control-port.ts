@@ -1,4 +1,4 @@
-import {TorClientControl, TorRequest} from '../src/index';
+import {TorClientControl, TorRequest} from '../index';
 import * as request from 'request';
 import * as pjson from 'pjson';
 

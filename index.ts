@@ -321,7 +321,7 @@ export class TorClientControl {
         this.tunnel = new Tunnel(options);
     }
 
-    static optionsValid(options: IOptions) {
+    static optionsValid(options: IOptions): any {
         if (options.password == 'undefined')
             throw new Error("tor_client:rawSendData: attempted to send a command without the password being set");
 

@@ -1,4 +1,4 @@
-import {TorRequest} from '../src/index';
+import {TorRequest} from '../index';
 import * as request from 'request';
 
 
