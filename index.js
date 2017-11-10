@@ -243,7 +243,7 @@ var Tunnel = /** @class */ (function () {
 var urlIfConfig = "http://api.ipify.org";
 var TorClientControl = /** @class */ (function () {
     function TorClientControl(options) {
-        var ops = options || pjson['torClient'] || {};
+        var ops = options || (pjson['torClient'] && pjson['torClient']['options']) || {};
         TorClientControl.optionsValid(ops);
         this.tunnel = new Tunnel(ops);
     }
@@ -266,10 +266,18 @@ var TorClientControl = /** @class */ (function () {
             .switchMap(function (orgIpaddress) {
             return _this.getTorIp()
                 .do(function (newIp) {
-                if (newIp === orgIpaddress)
+                if (newIp === orgIpaddress) {
+                    if (pjson['torClient'] && pjson['torClient']['debug'])
+                        console.log("tor-request:newTorSession: Ip was the same throwing, newIp: " + newIp + ", orgIpaddress: " + orgIpaddress);
                     throw "new Ip same as old " + newIp + " " + orgIpaddress;
+                }
             })
-                .retryWhen(function (on) { return on.delay(4000); });
+                .retryWhen(function (on) { return on
+                .do(function () {
+                if (pjson['torClient'] && pjson['torClient']['debug'])
+                    console.log('tor-request:newTorSession: waiting antoher 4 seconds for ip to be different');
+            })
+                .delay(4000); });
         });
     };
     TorClientControl.prototype.getTorIp = function () {

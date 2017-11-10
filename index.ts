@@ -318,7 +318,7 @@ export class TorClientControl {
     private tunnel;
 
     constructor(options?: IOptions) {
-        let ops = options || pjson['torClient'] || {};
+        let ops = options || (pjson['torClient'] && pjson['torClient']['options']) || {};
 
         TorClientControl.optionsValid(ops);
         this.tunnel = new Tunnel(ops);
@@ -344,10 +344,19 @@ export class TorClientControl {
             .switchMap((orgIpaddress)=>{
                 return this.getTorIp()
                     .do(newIp=>{
-                        if(newIp === orgIpaddress)
-                            throw "new Ip same as old "+newIp+" "+orgIpaddress;
+                        if(newIp === orgIpaddress) {
+                            if(pjson['torClient'] && pjson['torClient']['debug'])
+                                console.log(`tor-request:newTorSession: Ip was the same throwing, newIp: ${newIp}, orgIpaddress: ${orgIpaddress}`);
+
+                            throw "new Ip same as old " + newIp + " " + orgIpaddress;
+                        }
                     })
-                    .retryWhen(on=>on.delay(4000))
+                    .retryWhen(on=>on
+                        .do(()=>{
+                            if(pjson['torClient'] && pjson['torClient']['debug'])
+                                console.log('tor-request:newTorSession: waiting antoher 4 seconds for ip to be different');
+                        })
+                        .delay(4000))
             })
 
     }

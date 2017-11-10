@@ -11,7 +11,7 @@ describe('Testing request and tor-request with ControlPort enabled against ' + u
 
     describe('test password exists', function () {
         it('should return without error', function (done) {
-            if(!pjson['torClient'] || !pjson['torClient'].password)
+            if(!pjson['torClient'] || !pjson['torClient']['options'] || !pjson['torClient']['options'].password)
                 throw "password did not exist in package.json, 'torClient.password'";
             done();
         });

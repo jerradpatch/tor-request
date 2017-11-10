@@ -32,6 +32,9 @@
     "url": "https://github.com/talmobi/tor-request"
   },
   "torClient": {
-    "password": "LoveMaoMao1234"
+    "debug": true,
+    "options": {
+      "password": "LoveMaoMao1234"
+    }
   }
 }

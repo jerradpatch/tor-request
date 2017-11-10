@@ -45,6 +45,21 @@ describe('Testing request and tor-request against ' + url, function () {
     });
   });
 
+  /*
+    test that we are using tor
+   */
+  var torCheckUrl = "https://check.torproject.org/";
+
+  describe('test http tor-request, is really a tor request', function () {
+    it('should return without error', function (done) {
+      tr.torRequest(torCheckUrl, function (err, res, body) {
+        if (err || body.indexOf("Congratulations. This browser is configured to use Tor.") == -1) throw err || new Error("request didn't go through tor - the tor ip and pulic ip were the same.");
+        console.log("Congratulations. This browser is configured to use Tor.");
+        done();
+      });
+    });
+  });
+
   /**
    * Test http bindings between request and tor-request
    */
