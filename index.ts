@@ -27,6 +27,7 @@ export class TorRequest {
 
         let socksAgent = new socks.Agent({
                 proxy: proxy_setup,
+                timeout: 2 * 60 * 1000
             },
             isHttps, // https
             false // rejectUnauthorized option passed to tls.connect().
@@ -43,6 +44,12 @@ export class TorRequest {
             return this.torRequest(params.uri || params.url, params, params.callback);
         }
     }
+
+    /*
+     * complete list of options
+     * https://www.npmjs.com/package/request
+     * https://github.com/request/request
+     */
 
     torRequest(uri, options, callback?) {
         let _op = callback && options || {};
@@ -88,7 +95,7 @@ function circuitRdy(resp: string[]): string {
             return c.match(/ LAUNCHED|GUARD_WAIT|EXTENDED /) || p;
         }, false);
 
-        if(someReady){
+        if(someReady) {
             return "wait";
         } else {
             throw "circuit failed: "+resp;
@@ -284,22 +291,22 @@ class Tunnel {
 
     rawTryAgain(command: ICommand, delay) {
         let obss =  this.obsSocketResponse
-        .take(1)
-        .delay(delay)
-        .map(res => {
-            let lines = res && res.split(os.EOL).slice(0, -1).map((lin: string)=> {
-                return (lin.endsWith("\r") ? lin.slice(0, -1) : lin);
-            });
+            .take(1)
+            .delay(delay)
+            .map(res => {
+                let lines = res && res.split(os.EOL).slice(0, -1).map((lin: string)=> {
+                        return (lin.endsWith("\r") ? lin.slice(0, -1) : lin);
+                    });
 
-            let resp: string = command.response(lines);
-            if (resp == 'success') {
-                // let parsed = Tunnel.parseSuccessfulResponseData(res);
-                return Observable.of(lines);
-            } else {//wait
-                return this.rawTryAgain(command, 500);
-            }
-        })
-        .switch();
+                let resp: string = command.response(lines);
+                if (resp == 'success') {
+                    // let parsed = Tunnel.parseSuccessfulResponseData(res);
+                    return Observable.of(lines);
+                } else {//wait
+                    return this.rawTryAgain(command, 500);
+                }
+            })
+            .switch();
 
         setTimeout(()=> {
             let commandString = `${command.commands}\n`;
@@ -358,6 +365,7 @@ export class TorClientControl {
                         })
                         .delay(4000))
             })
+            .take(1)
 
     }
 
