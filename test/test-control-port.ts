@@ -4,13 +4,11 @@ import * as request from 'request';
 
 var torOptions = {
     "debug": true,
-    "options": {
-        "password": "LoveMaoMao1234"
-    }
+    "password": "LoveMaoMao1234"
 };
 
 var url = "http://api.ipify.org"; // this api returns your ip in the respnose body
-var tcc = new TorClientControl(torOptions.options);
+var tcc = new TorClientControl(torOptions);
 var tr = new TorRequest();
 
 describe('Testing request and tor-request with ControlPort enabled against ' + url, function () {

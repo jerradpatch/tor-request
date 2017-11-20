@@ -18,11 +18,11 @@ export declare class TorRequest {
     del: (uri: any, options: any, callback?: any) => any;
 }
 export interface IOptions {
-    password: string;
-    host?: string;
-    controlPort?: number;
-    socksPort?: number;
-    type?: number;
+    password: string,
+    host?: string,
+    controlPort?: number,
+    socksPort?: number,
+    type?: number
 }
 export declare class TorClientControl {
     private tunnel;

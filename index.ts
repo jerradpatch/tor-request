@@ -163,11 +163,12 @@ interface ICommand {
 }
 
 export interface IOptions {
-    password: string;
-    host?: string;
-    controlPort?: number;
-    socksPort?: number;
-    type?: number;
+    debug?: boolean,
+    password: string,
+    host?: string,
+    controlPort?: number,
+    socksPort?: number,
+    type?: number
 }
 
 interface ISendsCommand {
@@ -333,7 +334,7 @@ export class TorClientControl {
     private options;
 
     constructor(options?: IOptions) {
-        this.options = options || defaults || {};
+        this.options = options || {};
 
         TorClientControl.optionsValid(this.options);
 
