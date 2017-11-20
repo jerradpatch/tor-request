@@ -3,9 +3,16 @@ import * as socks from 'socks';
 import * as request from 'request';
 import * as net from 'net';
 import * as os from 'os';
-import * as pjson from 'pjson';
 
 import {BehaviorSubject, ReplaySubject, Subject, Observable} from "@reactivex/rxjs";
+
+
+// var defaults =  {
+//     "debug": true,
+//     "options": {
+//         "password": "LoveMaoMao1234"
+//     }
+// }
 
 export class TorRequest {
 
@@ -323,12 +330,14 @@ const urlIfConfig = "http://api.ipify.org";
 export class TorClientControl {
 
     private tunnel;
+    private options;
 
     constructor(options?: IOptions) {
-        let ops = options || (pjson['torClient'] && pjson['torClient']['options']) || {};
+        this.options = options || defaults || {};
 
-        TorClientControl.optionsValid(ops);
-        this.tunnel = new Tunnel(ops);
+        TorClientControl.optionsValid(this.options);
+
+        this.tunnel = new Tunnel(this.options);
     }
 
     static optionsValid(options: IOptions): any {
@@ -352,7 +361,7 @@ export class TorClientControl {
                 return this.getTorIp()
                     .do(newIp=>{
                         if(newIp === orgIpaddress) {
-                            if(pjson['torClient'] && pjson['torClient']['debug'])
+                            if(this.options['debug'])
                                 console.log(`tor-request:newTorSession: Ip was the same throwing, newIp: ${newIp}, orgIpaddress: ${orgIpaddress}`);
 
                             throw "new Ip same as old " + newIp + " " + orgIpaddress;
@@ -360,7 +369,7 @@ export class TorClientControl {
                     })
                     .retryWhen(on=>on
                         .do(()=>{
-                            if(pjson['torClient'] && pjson['torClient']['debug'])
+                            if(this.options['debug'])
                                 console.log('tor-request:newTorSession: waiting antoher 4 seconds for ip to be different');
                         })
                         .delay(4000))

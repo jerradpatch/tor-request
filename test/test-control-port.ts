@@ -1,22 +1,20 @@
 import {TorClientControl, TorRequest} from '../index';
 import * as request from 'request';
-import * as pjson from 'pjson';
+
+
+var torOptions = {
+    "debug": true,
+    "options": {
+        "password": "LoveMaoMao1234"
+    }
+};
 
 var url = "http://api.ipify.org"; // this api returns your ip in the respnose body
-var tcc = new TorClientControl();
+var tcc = new TorClientControl(torOptions.options);
 var tr = new TorRequest();
 
 describe('Testing request and tor-request with ControlPort enabled against ' + url, function () {
   this.timeout(15000);
-
-    describe('test password exists', function () {
-        it('should return without error', function (done) {
-            if(!pjson['torClient'] || !pjson['torClient']['options'] || !pjson['torClient']['options'].password)
-                throw "password did not exist in package.json, 'torClient.password'";
-            done();
-        });
-    });
-
 
   describe('test http request', function () {
     it('should return without error', function (done) {

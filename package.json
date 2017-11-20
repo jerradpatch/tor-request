@@ -4,12 +4,13 @@
   "description": "send https requests through Tor.",
   "main": "index.js",
   "dependencies": {
-    "@reactivex/rxjs": "^5.5.2",
+    "fibers": "^2.0.0",
     "pjson": "^1.0.9",
     "request": "^2.67.0",
     "socks": "^1.1.8"
   },
   "devDependencies": {
+    "@reactivex/rxjs": "^5.5.2",
     "@types/mocha": "^2.2.44",
     "@types/node": "^8.0.47",
     "@types/request": "^2.0.7",
@@ -30,11 +31,5 @@
   "repository": {
     "type": "git",
     "url": "https://github.com/talmobi/tor-request"
-  },
-  "torClient": {
-    "debug": true,
-    "options": {
-      "password": "LoveMaoMao1234"
-    }
   }
 }
