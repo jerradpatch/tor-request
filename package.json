@@ -5,7 +5,6 @@
   "main": "index.js",
   "dependencies": {
     "fibers": "^2.0.0",
-    "pjson": "^1.0.9",
     "request": "^2.67.0",
     "socks": "^1.1.8"
   },
@@ -20,7 +19,7 @@
     "typescript": "^2.5.3"
   },
   "scripts": {
-    "clean": "rm ./index.js && find ./test -name '*.js*' -exec rm {} \\;",
+    "clean": "rm ./index.js --force && find ./test -name '*.js*' -exec rm {} \\;",
     "test": "./node_modules/mocha/bin/_mocha --compilers ts:ts-node/register,tsx:ts-node/register -P ./ --timeout 0 --ui bdd /home/jp/test/test",
     "test-all": "mocha test/*",
     "test-control-port": "mocha test/test-control-port.js"
