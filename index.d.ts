@@ -18,14 +18,16 @@ export declare class TorRequest {
     del: (uri: any, options: any, callback?: any) => any;
 }
 export interface IOptions {
-    password: string,
-    host?: string,
-    controlPort?: number,
-    socksPort?: number,
-    type?: number
+    debug?: boolean;
+    password: string;
+    host?: string;
+    controlPort?: number;
+    socksPort?: number;
+    type?: number;
 }
 export declare class TorClientControl {
     private tunnel;
+    private options;
     constructor(options?: IOptions);
     static optionsValid(options: IOptions): any;
     newTorSession(): Observable<string[]>;
