@@ -30,6 +30,6 @@ export declare class TorClientControl {
     private options;
     constructor(options?: IOptions);
     static optionsValid(options: IOptions): any;
-    newTorSession(): Observable<string[]>;
+    newTorSession(): Observable<string>;
     private getTorIp();
 }

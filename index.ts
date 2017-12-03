@@ -301,7 +301,7 @@ class Tunnel {
         let obss =  this.obsSocketResponse
             .take(1)
             .delay(delay)
-            .map(res => {
+            .map((res: string) => {
                 let lines = res && res.split(os.EOL).slice(0, -1).map((lin: string)=> {
                         return (lin.endsWith("\r") ? lin.slice(0, -1) : lin);
                     });
@@ -350,7 +350,7 @@ export class TorClientControl {
         options.type = options.type || 5;
     }
 
-    newTorSession(): Observable<string[]> {
+    newTorSession(): Observable<string> {
         return this.getTorIp()
             .concatMap(val=>{
                 return this.tunnel.sendCommand(commands.signal.newnym, false)
