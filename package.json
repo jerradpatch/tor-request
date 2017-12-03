@@ -6,10 +6,10 @@
   "dependencies": {
     "fibers": "^2.0.0",
     "request": "^2.67.0",
-    "socks": "^1.1.8"
+    "socks": "^1.1.8",
+    "@reactivex/rxjs": "^5.5.2"
   },
   "devDependencies": {
-    "@reactivex/rxjs": "^5.5.2",
     "@types/mocha": "^2.2.44",
     "@types/node": "^8.0.47",
     "@types/request": "^2.0.7",
