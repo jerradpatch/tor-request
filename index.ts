@@ -7,13 +7,6 @@ import * as os from 'os';
 import {BehaviorSubject, ReplaySubject, Subject, Observable} from "@reactivex/rxjs";
 
 
-// var defaults =  {
-//     "debug": true,
-//     "options": {
-//         "password": "LoveMaoMao1234"
-//     }
-// }
-
 export class TorRequest {
 
     static createProxySettings(ipaddress?, socksPort?, type?) {
@@ -241,7 +234,7 @@ class Tunnel {
         });
 
         socket.on('end', function(rdy) {
-            self.subjSocketResponse.error(new Error("tor_client:initTunnel:error: socket connection closed unexpectidly"));
+            self.subjSocketResponse.error(new Error("tor_client:initTunnel:error: socket connection closed unexpectedly"));
             self.initTunnel(self.options); //restart tunnel connection
         });
 
@@ -351,8 +344,13 @@ export class TorClientControl {
     }
 
     newTorSession(): Observable<string> {
+        let innerRetryCnt = 0;
+        let outerRetryCnt = 0;
         return this.getTorIp()
-            .concatMap(val=>{
+            .switchMap(val=>{
+                if(this.options['debug'])
+                    console.log(`tor-request:newTorSession: sending request for new session`);
+
                 return this.tunnel.sendCommand(commands.signal.newnym, false)
                     .map(()=>{
                         return val;
@@ -368,12 +366,26 @@ export class TorClientControl {
                             throw "new Ip same as old " + newIp + " " + orgIpaddress;
                         }
                     })
-                    .retryWhen(on=>on
-                        .do(()=>{
-                            if(this.options['debug'])
-                                console.log('tor-request:newTorSession: waiting antoher 4 seconds for ip to be different');
-                        })
-                        .delay(4000))
+                    .retryWhen((errors: Observable)=>{
+                        if(innerRetryCnt < 10) {
+                            if (this.options['debug'])
+                                console.log(`tor-request:newTorSession: waiting 4 seconds for ip to be different, innerRetryCnt:${innerRetryCnt}`);
+
+                            innerRetryCnt++;
+                            return errors.delay(4000);
+                        }
+                        throw new Error();
+                    });
+            })
+            .retryWhen((errors: Observable)=>{
+                if(outerRetryCnt < 5) {
+                    if (this.options['debug'])
+                        console.log(`tor-request:newTorSession: fetching a new session, (inner wait failed), outerRetryCnt:${outerRetryCnt}`);
+
+                    outerRetryCnt++;
+                    return errors;
+                }
+                throw new Error();
             })
             .take(1)
 

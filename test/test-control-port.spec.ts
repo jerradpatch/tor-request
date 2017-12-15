@@ -1,6 +1,6 @@
 import {TorClientControl, TorRequest} from '../index';
 import * as request from 'request';
-
+import {Observable} from "@reactivex/rxjs";
 
 var torOptions = {
     "debug": true,
