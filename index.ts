@@ -366,7 +366,7 @@ export class TorClientControl {
                             throw "new Ip same as old " + newIp + " " + orgIpaddress;
                         }
                     })
-                    .retryWhen((errors: Observable)=>{
+                    .retryWhen((errors: Observable<any>): Observable<any>=>{
                         if(innerRetryCnt < 10) {
                             if (this.options['debug'])
                                 console.log(`tor-request:newTorSession: waiting 4 seconds for ip to be different, innerRetryCnt:${innerRetryCnt}`);
@@ -377,7 +377,7 @@ export class TorClientControl {
                         throw new Error();
                     });
             })
-            .retryWhen((errors: Observable)=>{
+            .retryWhen((errors: Observable<any>): Observable<any>=>{
                 if(outerRetryCnt < 5) {
                     if (this.options['debug'])
                         console.log(`tor-request:newTorSession: fetching a new session, (inner wait failed), outerRetryCnt:${outerRetryCnt}`);
