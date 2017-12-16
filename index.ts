@@ -365,6 +365,8 @@ export class TorClientControl {
 
                             throw "new Ip same as old " + newIp + " " + orgIpaddress;
                         }
+                        if(this.options['debug'])
+                            console.log(`tor-request:newTorSession: recieved new Ip address, newIp: ${newIp}, orgIpaddress: ${orgIpaddress}`);
                     })
                     .retryWhen((errors: Observable<any>): Observable<any>=>{
                         if(innerRetryCnt < 10) {

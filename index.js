@@ -280,6 +280,8 @@ var TorClientControl = /** @class */ (function () {
                         console.log("tor-request:newTorSession: Ip was the same throwing, newIp: " + newIp + ", orgIpaddress: " + orgIpaddress);
                     throw "new Ip same as old " + newIp + " " + orgIpaddress;
                 }
+                if (_this.options['debug'])
+                    console.log("tor-request:newTorSession: recieved new Ip address, newIp: " + newIp + ", orgIpaddress: " + orgIpaddress);
             })
                 .retryWhen(function (errors) {
                 if (innerRetryCnt < 10) {
