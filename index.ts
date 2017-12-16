@@ -359,7 +359,7 @@ export class TorClientControl {
             .switchMap((orgIpaddress)=>{
                 return this.getTorIp()
                     .do(newIp=>{
-                        if(newIp === orgIpaddress) {
+                        if(newIp === orgIpaddress && innerRetryCnt < 10) {
                             if(this.options['debug'])
                                 console.log(`tor-request:newTorSession: Ip was the same throwing, newIp: ${newIp}, orgIpaddress: ${orgIpaddress}`);
 
@@ -369,27 +369,28 @@ export class TorClientControl {
                             console.log(`tor-request:newTorSession: recieved new Ip address, newIp: ${newIp}, orgIpaddress: ${orgIpaddress}`);
                     })
                     .retryWhen((errors: Observable<any>): Observable<any>=>{
-                        if(innerRetryCnt < 10) {
-                            return errors.delay(4000)
-                                .do(()=>{
-                                    if (this.options['debug'])
-                                        console.log(`tor-request:newTorSession: waiting 4 seconds for ip to be different, innerRetryCnt:${innerRetryCnt}`);
-                                    innerRetryCnt++;
-                                })
+                        return errors.delay(4000)
+                            .do(()=>{
+                                if (this.options['debug'])
+                                    console.log(`tor-request:newTorSession: waiting 4 seconds for ip to be different, innerRetryCnt:${innerRetryCnt}`);
+                                innerRetryCnt++;
+                            })
+
+                    })
+                    .do(newIp=>{
+                        if(innerRetryCnt > 10 && outerRetryCnt < 5) {
+                            innerRetryCnt = 0;
+                            throw "inner limit reached";
                         }
-                        throw new Error("tor-request:newTorSession: inner fail");
-                    });
+                    })
             })
             .retryWhen((errors: Observable<any>): Observable<any>=>{
-                if(outerRetryCnt < 5) {
-                    return errors
-                        .do(()=>{
-                            if (this.options['debug'])
-                                console.log(`tor-request:newTorSession: fetching a new session, (inner wait failed), outerRetryCnt:${outerRetryCnt}`);
-                            outerRetryCnt++;
-                        })
-                }
-                throw new Error("tor-request:newTorSession: outer fail");
+                return errors
+                    .do(()=>{
+                        if (this.options['debug'])
+                            console.log(`tor-request:newTorSession: fetching a new session, (inner wait failed), outerRetryCnt:${outerRetryCnt}`);
+                        outerRetryCnt++;
+                    })
             })
             .take(1)
 
