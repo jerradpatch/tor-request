@@ -91,4 +91,52 @@ describe('Testing request and tor-request with ControlPort enabled against ' + u
         });
       });
     });
+
+    describe('test http tor-request by requesting a new session and then fetching the webpage multiplue times', function () {
+        it('All pages should have the same length and content', function (done) {
+
+            let arrs = [];
+            for(var i = 0; i < 20;++i){
+                arrs.push(newSessReqPage());
+            }
+
+            Observable.from(arrs)
+                .concatAll()
+                .reduce((acc,curr)=>{
+                    acc.push(curr);
+                    return acc;
+                }, [])
+                .subscribe((pages: {page: string, ip: string}[])=>{
+                    let errMsg = "the pages were not long enough";
+
+                    let firstPage = pages[0];
+                    if(firstPage.page.length < 10000) {
+                        throw new Error(errMsg)
+                    }
+
+                    for(let i = 1; i < pages.length; ++i){
+                        if(pages[i].page.length < 10000) {
+                            throw new Error(errMsg)
+                        }
+
+                        done();
+                    }
+                });
+
+
+            function newSessReqPage() {
+                return tcc.newTorSession()
+                    .map((val): Promise<{page: string, ip: string}> => {
+                        let promReq = new Promise<any>((res, rej)=> {
+                            tr.torRequest('http://animeheaven.eu', function (e, resp, body) {
+                                res({page: body, ip: val});
+                            });
+                        });
+
+                        return promReq;
+                    })
+                    .switch();
+            }
+        });
+    });
 });

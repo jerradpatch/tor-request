@@ -1,7 +1,6 @@
 import {TorRequest} from '../index';
 import * as request from 'request';
 
-
 var url = "http://api.ipify.org"; // this api returns your ip in the respnose body
 var httpsUrl = "https://api.ipify.org";
 
@@ -117,16 +116,16 @@ describe('Testing request and tor-request against ' + url, function () {
       });
     });
 
-    // describe('test params.url alias for params.uri', function () {
-    //   it('should return without error', function (done) {
-    //     tr.put({url: url}, function (err, res, body) {
-    //       console.log("method was: " + res.req.method);
-    //       if (err || res.req.method != 'PUT') throw err || new Error("failed to call tr.put through tor");
-    //       console.log("the requests public ip was: " + body);
-    //       done();
-    //     });
-    //   });
-    // });
+    describe('test http tor-request with an actual website', function () {
+      it('should return without error', function (done) {
+        tr.torRequest('http://animeheaven.eu', function (err, res, body) {
+          if (err || body.length < 1000) throw err || new Error("the page did not fetech correctly");
+          console.log("The requests public ip was: " + body);
+          tor_ip = body;
+          done();
+        });
+      });
+    });
 
   })
 
